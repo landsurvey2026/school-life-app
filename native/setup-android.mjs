@@ -20,8 +20,8 @@ if (!s.includes("signingConfigs")) {
         release {
             signingConfig signingConfigs.family
 `);
-  s = s.replace(/versionCode \d+/, 'versionCode (System.getenv("VERSION_CODE") ?: "1").toInteger()')
-       .replace(/versionName "[^"]*"/, 'versionName "1.0." + (System.getenv("VERSION_CODE") ?: "1")');
+  s = s.replace(/versionCode \d+/, 'versionCode = Integer.parseInt(System.getenv("VERSION_CODE") ?: "1")')
+       .replace(/versionName "[^"]*"/, 'versionName = "1.0." + (System.getenv("VERSION_CODE") ?: "1")');
   fs.writeFileSync(p, s);
 }
 if (!s.includes("signingConfigs.family")) throw new Error("build.gradle 서명 설정 적용 실패");
