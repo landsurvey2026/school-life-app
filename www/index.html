@@ -72,6 +72,26 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--mainSoft);border
 .toast.show{opacity:1}
 .sync{font-size:12px;color:var(--sub)}
 .logbtn{flex:none;border:0;border-radius:99px;padding:6px 12px;font:inherit;font-size:13px;font-weight:700;background:var(--main);color:#fff}
+.vt{display:flex;justify-content:flex-end;gap:6px;margin:0 0 10px}
+.vt button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:6px 14px;font:inherit;font-size:13px;color:var(--sub)}
+.vt button.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:700}
+.calnav{border:0;background:#f3efe9;width:36px;height:36px;border-radius:10px;font-size:22px;line-height:1;color:var(--ink)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.wd{text-align:center;font-size:12px;color:var(--sub);padding:4px 0}
+.wd.sun,.dc.sun .dn{color:#e03131}.wd.sat,.dc.sat .dn{color:#1c7ed6}
+.dc{min-height:64px;border:0;background:none;border-radius:10px;padding:3px 2px;display:flex;flex-direction:column;align-items:stretch;gap:2px;font:inherit;text-align:left;overflow:hidden}
+.dc.out{opacity:.35}
+.dc .dn{font-size:12px;text-align:center;width:22px;height:22px;line-height:22px;border-radius:50%;margin:0 auto}
+.dc.today .dn{background:var(--main);color:#fff!important;font-weight:700}
+.dc.sel{background:var(--mainSoft);outline:1.5px solid var(--main)}
+.ev{display:block;font-size:10px;line-height:1.35;padding:0 3px;border-radius:4px;background:var(--mainSoft);color:var(--main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev.evh{background:var(--warnSoft);color:var(--warn)}.ev.evd{background:#f1f1f3;color:#9a96a3;text-decoration:line-through}
+.evm{font-size:10px;color:var(--sub);text-align:center}
+.dots{display:flex;justify-content:center;gap:3px;margin-top:auto}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%}
+.dot.dt{background:var(--main)}.dot.ds{background:var(--ok)}.dot.da{background:var(--warn)}
+.legend{display:flex;gap:14px;justify-content:center;font-size:12px;color:var(--sub);margin-top:10px}
+.legend .dot{margin-right:4px;vertical-align:middle}
 .calbtn{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--sub);background:#f6f2ec}
 .calbtn.on{color:var(--ok);background:var(--okSoft)}
 .steps{margin:8px 0 0;padding-left:18px;font-size:13px;line-height:1.7;color:#5a5664}
@@ -108,6 +128,7 @@ const SEMS=["1-1","1-2","2-1","2-2","3-1","3-2"];
 const KEY="hs-life-v1";
 
 let S=BLANK();
+let taskView="list", calMonth=todayStr().slice(0,7), selDay=todayStr();
 let tab="tasks", taskFilter="todo", gradeSem="all", actFilter="all", studyFilter="ing";
 let cloud=null, syncState="이 폰에만 저장 중";
 /* ---------- 안드로이드 앱(Capacitor) 알람 ---------- */
@@ -202,23 +223,10 @@ function calSheet(x){
 function avgGrade(list){let w=0,s=0;list.forEach(g=>{if(g.grade){const c=Number(g.credit)||1;w+=c;s+=c*g.grade;}});return w?s/w:null;}
 
 /* ---------- views ---------- */
-function vTasks(){
-  const t=S.tasks.slice();
-  const todo=t.filter(x=>!x.done).sort((a,b)=>a.date.localeCompare(b.date));
-  const done=t.filter(x=>x.done).sort((a,b)=>b.date.localeCompare(a.date));
-  const list=taskFilter==="todo"?todo:done;
-  const week=todo.filter(x=>{const n=ddays(x.date);return n>=0&&n<=7;}).length;
-  const over=todo.filter(x=>ddays(x.date)<0).length;
-  let h=`<div class="stats">
-    <div class="card"><div class="meta">이번 주 마감</div><div class="big">${week}<span style="font-size:15px;color:var(--sub)"> 개</span></div></div>
-    <div class="card"><div class="meta">${over?"마감 지남":"남은 할 일"}</div><div class="big" style="color:${over?"var(--warn)":"var(--main)"}">${over||todo.length}<span style="font-size:15px;color:var(--sub)"> 개</span></div></div>
-  </div>
-  <div class="seg" data-seg="task"><button class="${taskFilter==="todo"?"on":""}" data-v="todo">해야 할 일 ${todo.length}</button><button class="${taskFilter==="done"?"on":""}" data-v="done">끝낸 일 ${done.length}</button></div>`;
-  if(!list.length) h+=`<div class="empty">${taskFilter==="todo"?"등록된 일정이 없어요.<br>수행평가나 시험이 공지되면<br>아래 <b>+</b> 버튼으로 추가해 보세요.":"아직 끝낸 일이 없어요."}</div>`;
-  list.forEach(x=>{
-    const n=ddays(x.date);
-    const cls=x.done?"past":n<0?"hot":n<=3?"hot":"";
-    h+=`<div class="card row" data-edit-task="${x.id}">
+function taskCard(x){
+  const n=ddays(x.date);
+  const cls=x.done?"past":n<0?"hot":n<=3?"hot":"";
+  return `<div class="card row" data-edit-task="${x.id}">
       <button class="chk ${x.done?"done":""}" data-toggle="${x.id}" aria-label="완료"></button>
       <div class="grow">
         <div class="title ${x.done?"done-t":""}">${esc(x.title)}</div>
@@ -227,7 +235,64 @@ function vTasks(){
       ${x.done||APP?"":`<a class="calbtn ${x.cal?"on":""}" href="${gcalUrl(x)}" target="_blank" rel="noopener" data-cal="${x.id}" aria-label="캘린더에 추가">${CAL_SVG}</a>`}
       <div class="dday ${cls}">${x.done?"완료":ddayLabel(n)}</div>
     </div>`;
-  });
+}
+function viewToggle(){return `<div class="vt"><button class="${taskView==="list"?"on":""}" data-view="list">☰ 목록</button><button class="${taskView==="cal"?"on":""}" data-view="cal">▦ 달력</button></div>`;}
+function vTasks(){
+  if(taskView==="cal")return viewToggle()+vCal();
+  const t=S.tasks.slice();
+  const todo=t.filter(x=>!x.done).sort((a,b)=>a.date.localeCompare(b.date));
+  const done=t.filter(x=>x.done).sort((a,b)=>b.date.localeCompare(a.date));
+  const list=taskFilter==="todo"?todo:done;
+  const week=todo.filter(x=>{const n=ddays(x.date);return n>=0&&n<=7;}).length;
+  const over=todo.filter(x=>ddays(x.date)<0).length;
+  let h=viewToggle()+`<div class="stats">
+    <div class="card"><div class="meta">이번 주 마감</div><div class="big">${week}<span style="font-size:15px;color:var(--sub)"> 개</span></div></div>
+    <div class="card"><div class="meta">${over?"마감 지남":"남은 할 일"}</div><div class="big" style="color:${over?"var(--warn)":"var(--main)"}">${over||todo.length}<span style="font-size:15px;color:var(--sub)"> 개</span></div></div>
+  </div>
+  <div class="seg" data-seg="task"><button class="${taskFilter==="todo"?"on":""}" data-v="todo">해야 할 일 ${todo.length}</button><button class="${taskFilter==="done"?"on":""}" data-v="done">끝낸 일 ${done.length}</button></div>`;
+  if(!list.length) h+=`<div class="empty">${taskFilter==="todo"?"등록된 일정이 없어요.<br>수행평가나 시험이 공지되면<br>아래 <b>+</b> 버튼으로 추가해 보세요.":"아직 끝낸 일이 없어요."}</div>`;
+  list.forEach(x=>{h+=taskCard(x);});
+  return h;
+}
+/* ---------- 달력 ---------- */
+function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function dayItems(date){
+  const tasks=S.tasks.filter(x=>x.date===date).sort((a,b)=>(a.done?1:0)-(b.done?1:0));
+  const logs=[];S.studies.forEach(st=>(st.logs||[]).forEach(l=>{if(l.date===date)logs.push({st,l});}));
+  const acts=S.acts.filter(a=>a.date===date);
+  return {tasks,logs,acts};
+}
+function vCal(){
+  const [Y,M]=calMonth.split("-").map(Number);
+  const first=new Date(Y,M-1,1), start=new Date(first);start.setDate(1-first.getDay());
+  const today=todayStr();
+  let h=`<div class="card" style="padding:12px 10px">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <button class="calnav" data-mnav="-1" aria-label="이전 달">‹</button>
+      <div style="font-weight:700;font-size:17px">${Y}년 ${M}월</div>
+      <button class="calnav" data-mnav="1" aria-label="다음 달">›</button>
+    </div>
+    <div class="cal">${"일월화수목금토".split("").map((w,i)=>`<div class="wd ${i===0?"sun":i===6?"sat":""}">${w}</div>`).join("")}`;
+  for(let i=0;i<42;i++){
+    const d=new Date(start);d.setDate(start.getDate()+i);
+    if(i>=35&&d.getMonth()!==M-1)break;
+    const ds=ymd(d),it=dayItems(ds),out=d.getMonth()!==M-1;
+    const tl=it.tasks.slice(0,2).map(x=>`<span class="ev ${x.done?"evd":ddays(x.date)<=3&&ddays(x.date)>=0?"evh":""}">${esc(x.title)}</span>`).join("");
+    const more=it.tasks.length>2?`<span class="evm">+${it.tasks.length-2}</span>`:"";
+    const dots=(it.logs.length?`<i class="dot ds"></i>`:"")+(it.acts.length?`<i class="dot da"></i>`:"");
+    h+=`<button class="dc ${out?"out":""} ${ds===today?"today":""} ${ds===selDay?"sel":""} ${d.getDay()===0?"sun":d.getDay()===6?"sat":""}" data-day="${ds}">
+      <span class="dn">${d.getDate()}</span>${tl}${more}${dots?`<span class="dots">${dots}</span>`:""}</button>`;
+  }
+  h+=`</div>
+    <div class="legend"><span><i class="dot dt"></i>일정</span><span><i class="dot ds"></i>선행 공부</span><span><i class="dot da"></i>활동</span></div>
+  </div>`;
+  const it=dayItems(selDay);
+  h+=`<div class="row" style="margin:16px 4px 8px"><div class="grow" style="font-weight:700">${fmtDate(selDay)}${selDay===today?" · 오늘":""}</div>
+    <button class="logbtn" data-addon="${selDay}">+ 이 날 일정</button></div>`;
+  if(!it.tasks.length&&!it.logs.length&&!it.acts.length)h+=`<div class="empty" style="padding:18px">이 날은 기록이 없어요.</div>`;
+  it.tasks.forEach(x=>{h+=taskCard(x);});
+  it.logs.forEach(({st,l})=>{h+=`<div class="card" data-edit-study="${st.id}"><div class="row"><span class="tag" style="background:var(--okSoft);color:var(--ok)">선행</span><div class="grow title">${esc(st.title)}</div><b style="font-size:13px">${l.amount}${esc(st.unit)}</b></div>${l.memo?`<div class="meta">${esc(l.memo)}</div>`:""}</div>`;});
+  it.acts.forEach(a=>{h+=`<div class="card" data-edit-act="${a.id}"><div class="row"><span class="tag" style="background:var(--warnSoft);color:var(--warn)">${esc(a.type)}</span><div class="grow title">${esc(a.title)}</div></div></div>`;});
   return h;
 }
 function vGrades(){
@@ -447,8 +512,8 @@ function chipVal(name){const c=$(`#sheet [data-chips="${name}"]`);const on=c&&c.
 function delBtn(has){return has?`<button class="btn red" id="fDel">삭제</button>`:"";}
 function askDelete(fn){const b=$("#fDel");if(!b)return;b.addEventListener("click",()=>{if(b.dataset.sure){fn();closeSheet();toast("삭제했어요");}else{b.dataset.sure=1;b.textContent="한 번 더 누르면 삭제";}});}
 
-function taskForm(id){
-  const x=S.tasks.find(t=>t.id===id)||{subject:L("subjects")[0],type:L("taskTypes")[0],title:"",date:todayStr(),memo:""};
+function taskForm(id,preset){
+  const x=S.tasks.find(t=>t.id===id)||{subject:L("subjects")[0],type:L("taskTypes")[0],title:"",date:preset||todayStr(),memo:""};
   openSheet(`<h2>${id?"일정 수정":"새 일정"}</h2>
     <label>종류</label>${chips(withCur(L("taskTypes"),x.type),x.type,"type")}
     <div class="two"><div><label>과목</label><select id="fSub">${subjOptions(x.subject)}</select></div>
@@ -523,10 +588,14 @@ function actForm(id){
 
 /* ---------- events ---------- */
 $("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;tab=b.dataset.tab;try{localStorage.setItem(KEY+"-tab",tab)}catch(e){}render();window.scrollTo(0,0);});
-$("#fab").addEventListener("click",()=>tab==="tasks"?taskForm():tab==="grades"?gradeForm():tab==="study"?studyForm():actForm());
+$("#fab").addEventListener("click",()=>tab==="tasks"?taskForm(null,taskView==="cal"?selDay:null):tab==="grades"?gradeForm():tab==="study"?studyForm():actForm());
 $("#view").addEventListener("click",e=>{
   const cl=e.target.closest("[data-cal]");
   if(cl){const t=S.tasks.find(x=>x.id===cl.dataset.cal);if(t&&!t.cal){t.cal=1;save();}return;}
+  const vw=e.target.closest("[data-view]");if(vw){taskView=vw.dataset.view;try{localStorage.setItem(KEY+"-view",taskView)}catch(_){}render();return;}
+  const mn=e.target.closest("[data-mnav]");if(mn){const [y,m]=calMonth.split("-").map(Number);const d=new Date(y,m-1+Number(mn.dataset.mnav),1);calMonth=ymd(d).slice(0,7);selDay=calMonth===todayStr().slice(0,7)?todayStr():calMonth+"-01";render();return;}
+  const dy=e.target.closest("[data-day]");if(dy){selDay=dy.dataset.day;if(selDay.slice(0,7)!==calMonth)calMonth=selDay.slice(0,7);render();return;}
+  const ad=e.target.closest("[data-addon]");if(ad)return taskForm(null,ad.dataset.addon);
   const tg=e.target.closest("[data-toggle]");
   if(tg){e.stopPropagation();const t=S.tasks.find(x=>x.id===tg.dataset.toggle);t.done=!t.done;save();toast(t.done?"잘했어요! 완료 처리했어요":"다시 할 일로 옮겼어요");return;}
   const lg=e.target.closest("[data-log]");if(lg){e.stopPropagation();return logForm(lg.dataset.log);}
@@ -560,7 +629,7 @@ function bindMore(){
 }
 
 loadLocal();
-try{const t=localStorage.getItem(KEY+"-tab");if(t)tab=t;}catch(e){}
+try{const t=localStorage.getItem(KEY+"-tab");if(t)tab=t;const v=localStorage.getItem(KEY+"-view");if(v)taskView=v;}catch(e){}
 render();
 if(APP){initAlarms();document.addEventListener("resume",()=>{render();initAlarms();});document.addEventListener("visibilitychange",()=>{if(!document.hidden){render();initAlarms();}});}
 else initCloud();
