@@ -71,6 +71,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--mainSoft);border
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 92px);transform:translateX(-50%);background:#2b2a33;color:#fff;padding:10px 16px;border-radius:99px;font-size:13px;opacity:0;transition:.25s;z-index:20;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
 .sync{font-size:12px;color:var(--sub)}
+.logbtn{flex:none;border:0;border-radius:99px;padding:6px 12px;font:inherit;font-size:13px;font-weight:700;background:var(--main);color:#fff}
 .calbtn{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--sub);background:#f6f2ec}
 .calbtn.on{color:var(--ok);background:var(--okSoft)}
 .steps{margin:8px 0 0;padding-left:18px;font-size:13px;line-height:1.7;color:#5a5664}
@@ -86,6 +87,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--mainSoft);border
 <nav id="nav">
   <button data-tab="tasks" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>일정</button>
   <button data-tab="grades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>성적</button>
+  <button data-tab="study"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5C4.5 4 8 4 12 6c4-2 7.5-2 10-.5V19c-2.5-1.5-6-1.5-10 .5-4-2-7.5-2-10-.5z"/><path d="M12 6v13.5"/></svg>선행</button>
   <button data-tab="acts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/></svg>활동</button>
   <button data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>설정</button>
 </nav>
@@ -93,14 +95,20 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--mainSoft);border
 <div class="toast" id="toast"></div>
 
 <script>
-const SUBJECTS=["국어","수학","영어","한국사","통합사회","통합과학","과학탐구실험","정보","체육","음악","미술","기술·가정","제2외국어","기타"];
-const TASK_TYPES=["수행평가","지필고사","과제","준비물","기타"];
-const ACT_TYPES=["동아리","봉사","독서","탐구·발표","대회·수상","진로","기타"];
+const DEFAULT_LISTS={
+  subjects:["국어","수학","영어","한국사","통합사회","통합과학","과학탐구실험","정보","체육","음악","미술","기술·가정","제2외국어","기타"],
+  taskTypes:["수행평가","지필고사","과제","준비물","학원 숙제","기타"],
+  actTypes:["동아리","봉사","독서","탐구·발표","대회·수상","진로","기타"]
+};
+const LIST_INFO={subjects:"과목",taskTypes:"일정 종류",actTypes:"활동 종류"};
+const L=k=>(S.lists&&Array.isArray(S.lists[k])&&S.lists[k].length)?S.lists[k]:DEFAULT_LISTS[k];
+const UNITS=["단원","페이지","강","챕터","회차"];
+const BLANK=()=>({name:"",tasks:[],grades:[],acts:[],studies:[],lists:null,studyAlarm:{on:false,time:"21:00"},updatedAt:0});
 const SEMS=["1-1","1-2","2-1","2-2","3-1","3-2"];
 const KEY="hs-life-v1";
 
-let S={name:"",tasks:[],grades:[],acts:[],updatedAt:0};
-let tab="tasks", taskFilter="todo", gradeSem="all", actFilter="all";
+let S=BLANK();
+let tab="tasks", taskFilter="todo", gradeSem="all", actFilter="all", studyFilter="ing";
 let cloud=null, syncState="이 폰에만 저장 중";
 /* ---------- 안드로이드 앱(Capacitor) 알람 ---------- */
 const APP=!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform());
@@ -122,6 +130,10 @@ async function scheduleAll(){
       if(eve.getTime()>now)list.push({id:base,channelId:"due",title:"내일 마감 · "+t.title,body:`${t.subject} ${t.type} — 오늘 밤에 한 번 더 확인해요`,schedule:{at:eve,allowWhileIdle:true}});
       if(morn.getTime()>now)list.push({id:base+1,channelId:"due",title:"오늘 마감 · "+t.title,body:`${t.subject} ${t.type} — 잊지 말고 챙기기!`,schedule:{at:morn,allowWhileIdle:true}});
     });
+    if(S.studyAlarm&&S.studyAlarm.on&&S.studies.some(x=>sDone(x)<x.total)){
+      const [hh,mm]=(S.studyAlarm.time||"21:00").split(":").map(Number);
+      list.push({id:900000001,channelId:"due",title:"오늘 선행 공부 기록했나요? 📚",body:"공부한 만큼 + 기록 버튼으로 남겨 두세요",schedule:{on:{hour:hh,minute:mm},allowWhileIdle:true}});
+    }
     if(list.length)await LN.schedule({notifications:list});
   }catch(e){console.log("schedule error",e);}
 }
@@ -134,7 +146,7 @@ async function initAlarms(){
 }
 
 /* ---------- storage ---------- */
-function loadLocal(){try{const t=localStorage.getItem(KEY);if(t){const d=JSON.parse(t);if(d&&d.tasks)S=Object.assign(S,d);}}catch(e){}}
+function loadLocal(){try{const t=localStorage.getItem(KEY);if(t){const d=JSON.parse(t);if(d&&d.tasks)S=Object.assign(BLANK(),d);}}catch(e){}}
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 let pushTimer=null;
 function save(){S.updatedAt=Date.now();saveLocal();scheduleSoon();if(cloud){clearTimeout(pushTimer);pushTimer=setTimeout(pushCloud,800);}render();}
@@ -151,7 +163,7 @@ async function initCloud(){
     let remote=null;
     if(snap){remote=typeof snap.data==="function"?snap.data():(snap.data!==undefined?snap.data:snap);}
     cloud=ref;
-    if(remote&&remote.tasks&&(remote.updatedAt||0)>(S.updatedAt||0)){S=Object.assign({name:"",tasks:[],grades:[],acts:[]},remote);saveLocal();}
+    if(remote&&remote.tasks&&(remote.updatedAt||0)>(S.updatedAt||0)){S=Object.assign(BLANK(),remote);saveLocal();}
     else if(S.updatedAt){await pushCloud();}
     syncState="계정에 자동 저장됨";render();
   }catch(e){}
@@ -167,7 +179,8 @@ function ddayLabel(n){return n===0?"D-day":n>0?"D-"+n:"D+"+(-n);}
 function fmtDate(s){if(!s)return"";const d=new Date(s+"T00:00:00");return (d.getMonth()+1)+"월 "+d.getDate()+"일 ("+"일월화수목금토"[d.getDay()]+")";}
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1800);}
 function chips(list,cur,name){return `<div class="chips" data-chips="${name}">${list.map(v=>`<button type="button" class="${v===cur?"on":""}" data-v="${esc(v)}">${esc(v)}</button>`).join("")}</div>`;}
-function subjOptions(cur){return SUBJECTS.map(s=>`<option ${s===cur?"selected":""}>${s}</option>`).join("");}
+function subjOptions(cur){const l=L("subjects").slice();if(cur&&!l.includes(cur))l.unshift(cur);return l.map(s=>`<option ${s===cur?"selected":""}>${esc(s)}</option>`).join("");}
+function withCur(list,cur){return cur&&!list.includes(cur)?[cur,...list]:list;}
 /* 5등급 상대평가: 누적 10/34/66/90/100% */
 function rankToGrade(rank,total){if(!rank||!total)return null;const p=rank/total*100;return p<=10?1:p<=34?2:p<=66?3:p<=90?4:5;}
 /* 구글 캘린더 종일 일정 링크 */
@@ -249,7 +262,7 @@ function vActs(){
     <div class="card"><div class="meta">기록한 활동</div><div class="big">${S.acts.length}<span style="font-size:15px;color:var(--sub)"> 개</span></div></div>
     <div class="card"><div class="meta">봉사 시간</div><div class="big">${hours}<span style="font-size:15px;color:var(--sub)"> 시간</span></div></div>
   </div>`;
-  h+=chips(["all",...ACT_TYPES],actFilter,"act").replace(/>all</,">전체<");
+  h+=chips(["all",...L("actTypes")],actFilter,"act").replace(/>all</,">전체<");
   h+=`<div style="height:10px"></div>`;
   if(!list.length) h+=`<div class="empty">동아리, 봉사, 책 읽은 것, 발표한 것…<br>하고 나서 바로 한두 줄 남겨두면<br>3학년 때 정말 큰 도움이 돼요.</div>`;
   list.forEach(a=>{
@@ -267,8 +280,16 @@ function vMore(){
     <div class="sync" style="margin-top:8px">알림 권한: ${alarmPerm==="granted"?"✅ 켜짐":"⚠️ 꺼짐 — 아래 버튼을 눌러 허용해 주세요"}</div>
     ${exactPerm!=="granted"&&exactPerm!=="unknown"?`<div class="sync">정확한 시간 알림: ⚠️ 꺼짐 (알람이 몇 분 늦게 올 수 있어요)</div>`:""}
     <div class="btns">${alarmPerm!=="granted"?`<button class="btn" id="aPerm">알림 허용</button>`:""}${exactPerm!=="granted"&&exactPerm!=="unknown"?`<button class="btn ghost" id="aExact">정확한 시간 켜기</button>`:""}<button class="btn ghost" id="aTest">테스트 알림</button></div></div>`;
+  const listCard=`<div class="card"><div class="title">목록 편집</div>
+    <div class="hint">과목이나 종류를 내 상황에 맞게 추가하고 이름을 바꿀 수 있어요.</div>
+    <div class="btns">${Object.keys(LIST_INFO).map(k=>`<button class="btn ghost" data-list="${k}">${LIST_INFO[k]}</button>`).join("")}</div></div>`;
+  const studyAlarm=APP?`<div class="card"><div class="title">선행 공부 알림</div>
+    <div class="hint">매일 정한 시간에 "오늘 선행 기록했나요?" 알림을 보내요.</div>
+    <div class="row" style="margin-top:10px"><label style="margin:0;flex:1;color:var(--ink);font-size:15px"><input type="checkbox" id="saOn" ${S.studyAlarm&&S.studyAlarm.on?"checked":""} style="width:auto;margin-right:8px;vertical-align:middle">매일 알림 받기</label>
+    <input type="time" id="saTime" value="${(S.studyAlarm&&S.studyAlarm.time)||"21:00"}" style="width:130px"></div></div>`:"";
   return `<div class="card"><label style="margin-top:0">내 이름 (첫 화면 인사에 나와요)</label>
     <input id="nm" value="${esc(S.name)}" placeholder="예: 지윤"></div>
+  ${listCard}${studyAlarm}
   ${APP?appAlarm:`<div class="card"><div class="title">알람 받는 법 (처음 한 번만)</div>
     <div class="hint">일정을 저장할 때 <b>캘린더에 추가</b>를 누르면 구글 캘린더에 들어가요. 알람 시간은 구글 캘린더에서 한 번만 정해두면 돼요.</div>
     <ol class="steps"><li>구글 캘린더 앱 → 왼쪽 위 ☰ → <b>설정</b></li><li>내 계정 선택 → <b>종일 일정</b>의 <b>기본 알림</b></li><li><b>1일 전 오후 8시</b>처럼 원하는 시간 선택</li></ol>
@@ -287,11 +308,131 @@ function vMore(){
     <div class="hint">1등급 상위 10% · 2등급 34% · 3등급 66% · 4등급 90% · 5등급 100%<br>석차와 수강자 수를 넣으면 등급이 자동으로 계산돼요. 학교 성적표에 나온 등급이 있으면 그걸 우선으로 써 주세요.</div></div>`;
 }
 
+
+/* ---------- 선행학습 ---------- */
+function sDone(st){return (st.logs||[]).reduce((a,l)=>a+(Number(l.amount)||0),0);}
+function sPace(st){
+  if(!st.start||!st.target||!st.total)return null;
+  const a=new Date(st.start+"T00:00:00"),b=new Date(st.target+"T00:00:00"),t=new Date(todayStr()+"T00:00:00");
+  const span=(b-a)/86400000; if(span<=0)return null;
+  const el=Math.min(Math.max((t-a)/86400000,0),span);
+  const expect=st.total*el/span, done=sDone(st), diff=done-expect;
+  const left=Math.max(st.total-done,0), daysLeft=Math.max(Math.round((b-t)/86400000),0);
+  const perWeek=daysLeft>0?left/daysLeft*7:left;
+  return {expect,diff,daysLeft,perWeek,left};
+}
+function vStudy(){
+  const ing=S.studies.filter(x=>sDone(x)<x.total), fin=S.studies.filter(x=>sDone(x)>=x.total);
+  const list=studyFilter==="ing"?ing:fin;
+  const week=new Date(todayStr()+"T00:00:00");week.setDate(week.getDate()-6);const wk=week.toISOString().slice(0,10);
+  const days=new Set();S.studies.forEach(x=>(x.logs||[]).forEach(l=>{if(l.date>=wk)days.add(l.date);}));
+  let h=`<div class="stats">
+    <div class="card"><div class="meta">진행 중인 선행</div><div class="big">${ing.length}<span style="font-size:15px;color:var(--sub)"> 개</span></div></div>
+    <div class="card"><div class="meta">최근 7일 공부한 날</div><div class="big">${days.size}<span style="font-size:15px;color:var(--sub)"> 일</span></div></div>
+  </div>
+  <div class="seg" data-seg="study"><button class="${studyFilter==="ing"?"on":""}" data-v="ing">진행 중 ${ing.length}</button><button class="${studyFilter==="fin"?"on":""}" data-v="fin">완료 ${fin.length}</button></div>`;
+  if(!list.length)h+=`<div class="empty">${studyFilter==="ing"?"선행 중인 교재나 인강을 등록해 보세요.<br>예: 수학 · 공통수학1 개념원리 · 12단원<br>아래 <b>+</b> 버튼으로 추가해요.":"아직 끝낸 선행이 없어요. 화이팅!"}</div>`;
+  list.forEach(st=>{
+    const d=sDone(st),pct=Math.min(100,d/st.total*100),pc=sPace(st);
+    let pace="";
+    if(d>=st.total)pace=`<span class="tag" style="background:var(--okSoft);color:var(--ok)">완료 🎉</span>`;
+    else if(pc){const df=Math.round(pc.diff*10)/10;
+      pace=df>=0.5?`<span class="tag" style="background:var(--okSoft);color:var(--ok)">계획보다 ${df}${esc(st.unit)} 앞섬</span>`
+        :df<=-0.5?`<span class="tag" style="background:var(--warnSoft);color:var(--warn)">계획보다 ${-df}${esc(st.unit)} 늦음</span>`
+        :`<span class="tag" style="background:var(--mainSoft);color:var(--main)">계획대로 진행 중</span>`;
+      pace+=`<span class="meta" style="display:block;margin-top:6px">목표 ${fmtDate(st.target)}까지 ${pc.daysLeft}일 · 일주일에 약 ${Math.ceil(pc.perWeek*10)/10}${esc(st.unit)}씩</span>`;}
+    const last=(st.logs||[]).slice().sort((a,b)=>b.date.localeCompare(a.date))[0];
+    h+=`<div class="card" data-edit-study="${st.id}">
+      <div class="row"><span class="tag">${esc(st.subject)}</span><div class="grow title">${esc(st.title)}</div><button class="logbtn" data-log="${st.id}">+ 기록</button></div>
+      <div class="row" style="margin-top:10px"><div class="grow"><div class="bar"><i style="width:${pct}%"></i></div></div><b style="font-size:13px">${d}/${st.total}${esc(st.unit)}</b></div>
+      <div style="margin-top:8px">${pace}</div>
+      ${last?`<div class="meta" style="margin-top:6px">최근 기록: ${fmtDate(last.date)} · ${last.amount}${esc(st.unit)}${last.memo?" · "+esc(last.memo):""}</div>`:""}
+    </div>`;
+  });
+  return h;
+}
+function studyForm(id){
+  const st=S.studies.find(t=>t.id===id)||{subject:L("subjects").includes("수학")?"수학":L("subjects")[0],title:"",unit:"단원",total:"",start:todayStr(),target:"",logs:[]};
+  const logs=(st.logs||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  openSheet(`<h2>${id?"선행 수정":"선행 추가"}</h2>
+    <div class="two"><div><label>과목</label><select id="fSub">${subjOptions(st.subject)}</select></div>
+    <div><label>진도 단위</label><select id="fUnit">${withCur(UNITS,st.unit).map(u=>`<option ${u===st.unit?"selected":""}>${esc(u)}</option>`).join("")}</select></div></div>
+    <label>교재·인강 이름</label><input id="fTitle" value="${esc(st.title)}" placeholder="예: 공통수학1 개념원리">
+    <label>전체 분량</label><input type="number" inputmode="numeric" id="fTot" value="${st.total}" placeholder="예: 12 (단원 수)">
+    <div class="two"><div><label>시작일</label><input type="date" id="fSt" value="${st.start||""}"></div>
+    <div><label>목표 완료일</label><input type="date" id="fTg" value="${st.target||""}"></div></div>
+    <div class="hint">목표일을 넣으면 계획보다 앞서는지 늦는지, 일주일에 얼마나 해야 하는지 알려줘요.</div>
+    ${logs.length?`<label>공부 기록 (눌러서 지우기)</label>${logs.map(l=>`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span class="grow" style="font-size:13px">${fmtDate(l.date)} · <b>${l.amount}${esc(st.unit)}</b>${l.memo?" · "+esc(l.memo):""}</span><button class="del" data-dellog="${l.id}">×</button></div>`).join("")}`:""}
+    <div class="btns">${delBtn(id)}<button class="btn ghost" id="fCancel">취소</button><button class="btn" id="fOk">저장</button></div>`,()=>{
+      $("#fCancel").onclick=closeSheet;
+      askDelete(()=>{S.studies=S.studies.filter(t=>t.id!==id);save();});
+      $("#sheet").querySelectorAll("[data-dellog]").forEach(b=>b.addEventListener("click",()=>{
+        if(!b.dataset.sure){b.dataset.sure=1;b.textContent="삭제?";b.style.color="#e03131";return;}
+        st.logs=st.logs.filter(l=>l.id!==b.dataset.dellog);save();studyForm(id);toast("기록을 지웠어요");}));
+      $("#fOk").onclick=()=>{
+        const title=$("#fTitle").value.trim(),total=+$("#fTot").value;
+        if(!title){toast("교재·인강 이름을 적어 주세요");return;} if(!total||total<1){toast("전체 분량을 숫자로 넣어 주세요");return;}
+        const v={id:id||uid(),subject:$("#fSub").value,title,unit:$("#fUnit").value,total,start:$("#fSt").value||todayStr(),target:$("#fTg").value,logs:st.logs||[]};
+        if(id)S.studies=S.studies.map(t=>t.id===id?v:t);else S.studies.push(v);
+        closeSheet();save();toast("저장했어요");
+      };
+    });
+}
+function logForm(id){
+  const st=S.studies.find(t=>t.id===id);if(!st)return;
+  const d=sDone(st);
+  openSheet(`<h2>오늘 공부 기록</h2>
+    <div class="card" style="background:var(--mainSoft);border:0"><div class="title">${esc(st.title)}</div><div class="meta">${esc(st.subject)} · 지금까지 ${d}/${st.total}${esc(st.unit)}</div></div>
+    <div class="two"><div><label>날짜</label><input type="date" id="lDate" value="${todayStr()}"></div>
+    <div><label>오늘 한 분량 (${esc(st.unit)})</label><input type="number" inputmode="decimal" step="0.5" id="lAmt" value="1"></div></div>
+    <label>메모 (선택)</label><input id="lMemo" placeholder="예: 2단원 개념 끝, 연습문제 절반">
+    <div class="btns"><button class="btn ghost" id="lCancel">취소</button><button class="btn" id="lOk">기록하기</button></div>`,()=>{
+      $("#lCancel").onclick=closeSheet;
+      $("#lOk").onclick=()=>{
+        const amt=+$("#lAmt").value;if(!amt||amt<=0){toast("분량을 넣어 주세요");return;}
+        st.logs=st.logs||[];st.logs.push({id:uid(),date:$("#lDate").value||todayStr(),amount:amt,memo:$("#lMemo").value.trim()});
+        closeSheet();save();toast(sDone(st)>=st.total?"선행 완료! 정말 수고했어요 🎉":"기록했어요. 오늘도 잘했어요!");
+      };
+    });
+}
+
+/* ---------- 목록 편집 (과목·일정 종류·활동 종류) ---------- */
+function listEditor(key){
+  const items=L(key).map(v=>({orig:v,val:v}));
+  const draw=()=>{
+    openSheet(`<h2>${LIST_INFO[key]} 편집</h2>
+      <div class="hint" style="margin-top:0">이름을 고치면 이미 입력한 기록에도 같이 바뀌어요. 지워도 기존 기록은 남아 있어요.</div>
+      <div id="lst">${items.map((it,i)=>`<div class="row" style="margin-top:8px"><input data-i="${i}" value="${esc(it.val)}"><button class="del" data-rm="${i}" aria-label="삭제">×</button></div>`).join("")}</div>
+      <div class="row" style="margin-top:12px"><input id="newItem" placeholder="새 ${LIST_INFO[key]} 이름"><button class="btn" style="flex:none;padding:11px 16px" id="addItem">추가</button></div>
+      <div class="btns"><button class="btn ghost" id="eReset">기본값으로</button><button class="btn ghost" id="eCancel">취소</button><button class="btn" id="eOk">저장</button></div>`,()=>{
+        const sync=()=>$("#sheet").querySelectorAll("[data-i]").forEach(inp=>items[+inp.dataset.i].val=inp.value);
+        $("#sheet").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{sync();items.splice(+b.dataset.rm,1);draw();});
+        const add=()=>{sync();const v=$("#newItem").value.trim();if(!v)return;if(items.some(x=>x.val.trim()===v)){toast("이미 있는 이름이에요");return;}items.push({orig:null,val:v});draw();setTimeout(()=>$("#newItem").focus(),50);};
+        $("#addItem").onclick=add;$("#newItem").addEventListener("keydown",e=>{if(e.key==="Enter")add();});
+        $("#eCancel").onclick=closeSheet;
+        $("#eReset").onclick=()=>{if(!S.lists)S.lists={};delete S.lists[key];closeSheet();save();toast("기본 목록으로 되돌렸어요");};
+        $("#eOk").onclick=()=>{
+          sync();
+          const out=[],seen=new Set();
+          items.forEach(it=>{const v=it.val.trim();if(v&&!seen.has(v)){seen.add(v);out.push(v);}});
+          if(!out.length){toast("하나 이상은 있어야 해요");return;}
+          items.forEach(it=>{const v=it.val.trim();if(it.orig&&v&&v!==it.orig){
+            if(key==="subjects"){[S.tasks,S.grades,S.studies].forEach(arr=>arr.forEach(r=>{if(r.subject===it.orig)r.subject=v;}));}
+            if(key==="taskTypes")S.tasks.forEach(r=>{if(r.type===it.orig)r.type=v;});
+            if(key==="actTypes"){S.acts.forEach(r=>{if(r.type===it.orig)r.type=v;});if(actFilter===it.orig)actFilter=v;}
+          }});
+          if(!S.lists)S.lists={};S.lists[key]=out;closeSheet();save();toast("저장했어요");
+        };
+      });
+  };
+  draw();
+}
+
 function render(){
   const d=new Date();
   $("#hello").textContent=S.name?`${S.name}의 고등학교 생활`:"나의 고등학교 생활";
   $("#today").textContent=`${d.getMonth()+1}월 ${d.getDate()}일 ${"일월화수목금토"[d.getDay()]}요일`;
-  $("#view").innerHTML=tab==="tasks"?vTasks():tab==="grades"?vGrades():tab==="acts"?vActs():vMore();
+  $("#view").innerHTML=tab==="tasks"?vTasks():tab==="grades"?vGrades():tab==="study"?vStudy():tab==="acts"?vActs():vMore();
   $("#fab").style.display=tab==="more"?"none":"block";
   document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
   if(tab==="more")bindMore();
@@ -307,9 +448,9 @@ function delBtn(has){return has?`<button class="btn red" id="fDel">삭제</butto
 function askDelete(fn){const b=$("#fDel");if(!b)return;b.addEventListener("click",()=>{if(b.dataset.sure){fn();closeSheet();toast("삭제했어요");}else{b.dataset.sure=1;b.textContent="한 번 더 누르면 삭제";}});}
 
 function taskForm(id){
-  const x=S.tasks.find(t=>t.id===id)||{subject:"국어",type:"수행평가",title:"",date:todayStr(),memo:""};
+  const x=S.tasks.find(t=>t.id===id)||{subject:L("subjects")[0],type:L("taskTypes")[0],title:"",date:todayStr(),memo:""};
   openSheet(`<h2>${id?"일정 수정":"새 일정"}</h2>
-    <label>종류</label>${chips(TASK_TYPES,x.type,"type")}
+    <label>종류</label>${chips(withCur(L("taskTypes"),x.type),x.type,"type")}
     <div class="two"><div><label>과목</label><select id="fSub">${subjOptions(x.subject)}</select></div>
     <div><label>마감일</label><input type="date" id="fDate" value="${x.date}"></div></div>
     <label>내용</label><input id="fTitle" value="${esc(x.title)}" placeholder="예: 독서 감상문 제출">
@@ -331,7 +472,7 @@ function taskForm(id){
 }
 function gradeForm(id){
   const last=S.grades[S.grades.length-1];
-  const g=S.grades.find(t=>t.id===id)||{sem:last?last.sem:"1-1",subject:"국어",credit:4,score:"",rank:"",total:"",grade:"",achv:""};
+  const g=S.grades.find(t=>t.id===id)||{sem:last?last.sem:"1-1",subject:L("subjects")[0],credit:4,score:"",rank:"",total:"",grade:"",achv:""};
   openSheet(`<h2>${id?"성적 수정":"성적 입력"}</h2>
     <label>학기</label>${chips(SEMS,g.sem,"sem")}
     <div class="two"><div><label>과목</label><select id="fSub">${subjOptions(g.subject)}</select></div>
@@ -359,9 +500,9 @@ function gradeForm(id){
     });
 }
 function actForm(id){
-  const a=S.acts.find(t=>t.id===id)||{type:"동아리",title:"",date:todayStr(),hours:"",memo:""};
+  const a=S.acts.find(t=>t.id===id)||{type:L("actTypes")[0],title:"",date:todayStr(),hours:"",memo:""};
   openSheet(`<h2>${id?"활동 수정":"활동 기록"}</h2>
-    <label>종류</label>${chips(ACT_TYPES,a.type,"type")}
+    <label>종류</label>${chips(withCur(L("actTypes"),a.type),a.type,"type")}
     <div class="two"><div><label>날짜</label><input type="date" id="fDate" value="${a.date}"></div>
     <div><label>봉사 시간 (봉사만)</label><input type="number" inputmode="decimal" id="fHr" value="${a.hours}" placeholder="예: 2"></div></div>
     <label>무엇을 했나요?</label><input id="fTitle" value="${esc(a.title)}" placeholder="예: 과학동아리 – 수질 측정 실험">
@@ -382,20 +523,26 @@ function actForm(id){
 
 /* ---------- events ---------- */
 $("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;tab=b.dataset.tab;try{localStorage.setItem(KEY+"-tab",tab)}catch(e){}render();window.scrollTo(0,0);});
-$("#fab").addEventListener("click",()=>tab==="tasks"?taskForm():tab==="grades"?gradeForm():actForm());
+$("#fab").addEventListener("click",()=>tab==="tasks"?taskForm():tab==="grades"?gradeForm():tab==="study"?studyForm():actForm());
 $("#view").addEventListener("click",e=>{
   const cl=e.target.closest("[data-cal]");
   if(cl){const t=S.tasks.find(x=>x.id===cl.dataset.cal);if(t&&!t.cal){t.cal=1;save();}return;}
   const tg=e.target.closest("[data-toggle]");
   if(tg){e.stopPropagation();const t=S.tasks.find(x=>x.id===tg.dataset.toggle);t.done=!t.done;save();toast(t.done?"잘했어요! 완료 처리했어요":"다시 할 일로 옮겼어요");return;}
-  const seg=e.target.closest("[data-seg] button");if(seg){taskFilter=seg.dataset.v;render();return;}
+  const lg=e.target.closest("[data-log]");if(lg){e.stopPropagation();return logForm(lg.dataset.log);}
+  const seg=e.target.closest("[data-seg] button");if(seg){if(seg.parentElement.dataset.seg==="study")studyFilter=seg.dataset.v;else taskFilter=seg.dataset.v;render();return;}
   const ch=e.target.closest("[data-chips] button");
   if(ch){const n=ch.parentElement.dataset.chips;if(n==="sem")gradeSem=ch.dataset.v;if(n==="act")actFilter=ch.dataset.v;render();return;}
   const et=e.target.closest("[data-edit-task]");if(et)return taskForm(et.dataset.editTask);
   const eg=e.target.closest("[data-edit-grade]");if(eg)return gradeForm(eg.dataset.editGrade);
   const ea=e.target.closest("[data-edit-act]");if(ea)return actForm(ea.dataset.editAct);
+  const es=e.target.closest("[data-edit-study]");if(es)return studyForm(es.dataset.editStudy);
 });
 function bindMore(){
+  document.querySelectorAll("[data-list]").forEach(b=>b.onclick=()=>listEditor(b.dataset.list));
+  const sa=$("#saOn"),st=$("#saTime");
+  const upd=()=>{S.studyAlarm={on:sa.checked,time:st.value||"21:00"};save();toast(sa.checked?`매일 ${S.studyAlarm.time}에 알려줄게요`:"선행 알림을 껐어요");};
+  if(sa){sa.onchange=upd;st.onchange=upd;}
   const ap=$("#aPerm");if(ap)ap.onclick=async()=>{try{const s=await LN.requestPermissions();alarmPerm=s.display;if(s.display!=="granted")toast("폰 설정 → 애플리케이션 → 나의 고교생활 → 알림에서 켜 주세요");scheduleAll();}catch(e){}render();};
   const ax=$("#aExact");if(ax)ax.onclick=async()=>{try{const x=await LN.changeExactNotificationSetting();exactPerm=x.exact_alarm;scheduleAll();}catch(e){}render();};
   const at=$("#aTest");if(at)at.onclick=async()=>{try{await LN.schedule({notifications:[{id:999999999,channelId:"due",title:"테스트 알림",body:"알람이 잘 오네요! 👍",schedule:{at:new Date(Date.now()+5000),allowWhileIdle:true}}]});toast("5초 뒤에 알림이 와요");}catch(e){toast("알림을 보낼 수 없어요. 권한을 확인해 주세요");}};
@@ -407,7 +554,7 @@ function bindMore(){
   });
   $("#rs").addEventListener("click",()=>{
     try{const d=JSON.parse($("#rsTxt").value);if(!d||!Array.isArray(d.tasks))throw 0;
-      S=Object.assign({name:"",tasks:[],grades:[],acts:[]},d);save();toast("복원했어요");}
+      S=Object.assign(BLANK(),d);save();toast("복원했어요");}
     catch(e){toast("백업 내용이 올바르지 않아요");}
   });
 }
