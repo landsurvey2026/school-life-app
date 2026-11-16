@@ -1,0 +1,11 @@
+{
+  "appId": "com.landsurvey.schoollife",
+  "appName": "나의 고교생활",
+  "webDir": "www",
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_school",
+      "iconColor": "#6C5CE7"
+    }
+  }
+}
